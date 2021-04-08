@@ -691,9 +691,11 @@ contract TNT721 is Context, TNT165, ITNT721, ITNT721Metadata, ITNT721Enumerable 
     function _beforeTokenTransfer(address from, address to, uint256 tokenId) internal virtual { }
 }
 
+// TNT stands for "Theta Network Token", TNT-721 is the non-fungible token
+// standard on the Theta network, similar to the ERC-721 standard on Ethereum
 contract CoolNFT is TNT721 {
     constructor (string memory name, string memory symbol, string memory uri) public TNT721(name, symbol) { 
-      uint mintIndex = totalSupply();
+        uint mintIndex = totalSupply();
         _safeMint(msg.sender, mintIndex);
         _setTokenURI(mintIndex, uri);
     }
