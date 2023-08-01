@@ -3,10 +3,10 @@
 // TNT-721 Non-Fungible Token implementation based on the OpenZeppelin Lib
 //
 
-pragma solidity ^0.6.2;
+pragma solidity ^0.8.18;
 
 abstract contract Context {
-    function _msgSender() internal view virtual returns (address payable) {
+    function _msgSender() internal view virtual returns (address) {
         return msg.sender;
     }
 
@@ -14,6 +14,7 @@ abstract contract Context {
         this; // silence state mutability warning without generating bytecode - see https://github.com/ethereum/solidity/issues/2691
         return msg.data;
     }
+
 }
 
 library SafeMath {
@@ -93,7 +94,7 @@ library Address {
     }
 
     function functionCall(address target, bytes memory data) internal returns (bytes memory) {
-      return functionCall(target, data, "Address: low-level call failed");
+        return functionCall(target, data, "Address: low-level call failed");
     }
 
     function functionCall(address target, bytes memory data, string memory errorMessage) internal returns (bytes memory) {
@@ -138,10 +139,9 @@ library EnumerableSet {
     struct Set {
         // Storage of set values
         bytes32[] _values;
-
         // Position of the value in the `values` array, plus 1 because index 0
         // means a value is not in the set.
-        mapping (bytes32 => uint256) _indexes;
+        mapping(bytes32 => uint256) _indexes;
     }
 
     function _add(Set storage set, bytes32 value) private returns (bool) {
@@ -208,15 +208,15 @@ library EnumerableSet {
     }
 
     function add(AddressSet storage set, address value) internal returns (bool) {
-        return _add(set._inner, bytes32(uint256(value)));
+        return _add(set._inner, bytes32(uint256(uint160(value))));
     }
 
     function remove(AddressSet storage set, address value) internal returns (bool) {
-        return _remove(set._inner, bytes32(uint256(value)));
+        return _remove(set._inner, bytes32(uint256(uint160(value))));
     }
 
     function contains(AddressSet storage set, address value) internal view returns (bool) {
-        return _contains(set._inner, bytes32(uint256(value)));
+        return _contains(set._inner, bytes32(uint256(uint160(value))));
     }
 
     function length(AddressSet storage set) internal view returns (uint256) {
@@ -224,7 +224,7 @@ library EnumerableSet {
     }
 
     function at(AddressSet storage set, uint256 index) internal view returns (address) {
-        return address(uint256(_at(set._inner, index)));
+        return address(uint160(uint256(_at(set._inner, index))));
     }
 
     struct UintSet {
@@ -348,7 +348,7 @@ library EnumerableMap {
     }
 
     function set(UintToAddressMap storage map, uint256 key, address value) internal returns (bool) {
-        return _set(map._inner, bytes32(key), bytes32(uint256(value)));
+        return _set(map._inner, bytes32(key), bytes32(uint256(uint160(value))));
     }
 
     function remove(UintToAddressMap storage map, uint256 key) internal returns (bool) {
@@ -365,41 +365,82 @@ library EnumerableMap {
 
     function at(UintToAddressMap storage map, uint256 index) internal view returns (uint256, address) {
         (bytes32 key, bytes32 value) = _at(map._inner, index);
-        return (uint256(key), address(uint256(value)));
+        return (uint256(key), address(uint160(uint256(value))));
     }
 
     function get(UintToAddressMap storage map, uint256 key) internal view returns (address) {
-        return address(uint256(_get(map._inner, bytes32(key))));
+        return address(uint160(uint256(_get(map._inner, bytes32(key)))));
     }
 
     function get(UintToAddressMap storage map, uint256 key, string memory errorMessage) internal view returns (address) {
-        return address(uint256(_get(map._inner, bytes32(key), errorMessage)));
+        return address(uint160(uint256(_get(map._inner, bytes32(key), errorMessage))));
+    }
+}
+
+library Math {
+    /**
+     * @dev Return the log in base 10, rounded down, of a positive value.
+     * Returns 0 if given 0.
+     */
+    function log10(uint256 value) internal pure returns (uint256) {
+        uint256 result = 0;
+    unchecked {
+        if (value >= 10**64) {
+            value /= 10**64;
+            result += 64;
+        }
+        if (value >= 10**32) {
+            value /= 10**32;
+            result += 32;
+        }
+        if (value >= 10**16) {
+            value /= 10**16;
+            result += 16;
+        }
+        if (value >= 10**8) {
+            value /= 10**8;
+            result += 8;
+        }
+        if (value >= 10**4) {
+            value /= 10**4;
+            result += 4;
+        }
+        if (value >= 10**2) {
+            value /= 10**2;
+            result += 2;
+        }
+        if (value >= 10**1) {
+            result += 1;
+        }
+    }
+        return result;
     }
 }
 
 library Strings {
 
-    function toString(uint256 value) internal pure returns (string memory) {
-        // Inspired by OraclizeAPI's implementation - MIT licence
-        // https://github.com/oraclize/ethereum-api/blob/b42146b063c7d6ee1358846c198246239e9360e8/oraclizeAPI_0.4.25.sol
+    bytes16 private constant _SYMBOLS = "0123456789abcdef";
 
-        if (value == 0) {
-            return "0";
+    function toString(uint256 value) internal pure returns (string memory) {
+    unchecked {
+        uint256 length = Math.log10(value) + 1;
+        string memory buffer = new string(length);
+        uint256 ptr;
+        /// @solidity memory-safe-assembly
+        assembly {
+            ptr := add(buffer, add(32, length))
         }
-        uint256 temp = value;
-        uint256 digits;
-        while (temp != 0) {
-            digits++;
-            temp /= 10;
+        while (true) {
+            ptr--;
+            /// @solidity memory-safe-assembly
+            assembly {
+                mstore8(ptr, byte(mod(value, 10), _SYMBOLS))
+            }
+            value /= 10;
+            if (value == 0) break;
         }
-        bytes memory buffer = new bytes(digits);
-        uint256 index = digits - 1;
-        temp = value;
-        while (temp != 0) {
-            buffer[index--] = byte(uint8(48 + temp % 10));
-            temp /= 10;
-        }
-        return string(buffer);
+        return buffer;
+    }
     }
 }
 
@@ -439,23 +480,10 @@ interface ITNT721Receiver {
     external returns (bytes4);
 }
 
-contract TNT165 is ITNT165 {
+abstract contract TNT165 is ITNT165 {
 
-    bytes4 private constant _INTERFACE_ID_TNT165 = 0x01ffc9a7;
-
-    mapping(bytes4 => bool) private _supportedInterfaces;
-
-    constructor () internal {
-        _registerInterface(_INTERFACE_ID_TNT165);
-    }
-
-    function supportsInterface(bytes4 interfaceId) public view override returns (bool) {
-        return _supportedInterfaces[interfaceId];
-    }
-
-    function _registerInterface(bytes4 interfaceId) internal virtual {
-        require(interfaceId != 0xffffffff, "TNT165: invalid interface id");
-        _supportedInterfaces[interfaceId] = true;
+    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+        return interfaceId == type(ITNT165).interfaceId;
     }
 }
 
@@ -480,12 +508,16 @@ contract TNT721 is Context, TNT165, ITNT721, ITNT721Metadata, ITNT721Enumerable 
     bytes4 private constant _INTERFACE_ID_TNT721_METADATA = 0x5b5e139f;
     bytes4 private constant _INTERFACE_ID_TNT721_ENUMERABLE = 0x780e9d63;
 
-    constructor (string memory name, string memory symbol) public {
-        _name = name;
-        _symbol = symbol;
-        _registerInterface(_INTERFACE_ID_TNT721);
-        _registerInterface(_INTERFACE_ID_TNT721_METADATA);
-        _registerInterface(_INTERFACE_ID_TNT721_ENUMERABLE);
+    constructor(string memory name_, string memory symbol_) {
+        _name = name_;
+        _symbol = symbol_;
+    }
+
+    function supportsInterface(bytes4 interfaceId) public view virtual override(TNT165, ITNT165) returns (bool) {
+        return
+        interfaceId == _INTERFACE_ID_TNT721 ||
+        interfaceId == _INTERFACE_ID_TNT721_METADATA ||
+        super.supportsInterface(interfaceId);
     }
 
     function balanceOf(address owner) public view override returns (uint256) {
@@ -669,18 +701,18 @@ contract TNT721 is Context, TNT165, ITNT721, ITNT721Metadata, ITNT721Enumerable 
     }
 
     function _checkOnTNT721Received(address from, address to, uint256 tokenId, bytes memory _data)
-        private returns (bool)
+    private returns (bool)
     {
         if (!to.isContract()) {
             return true;
         }
         bytes memory returndata = to.functionCall(abi.encodeWithSelector(
-            ITNT721Receiver(to).onTNT721Received.selector,
-            _msgSender(),
-            from,
-            tokenId,
-            _data
-        ), "TNT721: transfer to non TNT721Receiver implementer");
+                ITNT721Receiver(to).onTNT721Received.selector,
+                _msgSender(),
+                from,
+                tokenId,
+                _data
+            ), "TNT721: transfer to non TNT721Receiver implementer");
         bytes4 retval = abi.decode(returndata, (bytes4));
         return (retval == _TNT721_RECEIVED);
     }
@@ -694,7 +726,7 @@ contract TNT721 is Context, TNT165, ITNT721, ITNT721Metadata, ITNT721Enumerable 
 }
 
 contract CoolNFT is TNT721 {
-    constructor (string memory name, string memory symbol, string memory uri) public TNT721(name, symbol) { 
+    constructor (string memory name, string memory symbol, string memory uri) TNT721(name, symbol) {
         uint mintIndex = totalSupply();
         _safeMint(msg.sender, mintIndex);
         _setTokenURI(mintIndex, uri);
